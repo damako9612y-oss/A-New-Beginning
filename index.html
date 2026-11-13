@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ひみつのトビラと 3にんのぼうけん</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+
+  :root {
+    --bg-dark: #12101c;
+    --panel-bg: #1e1b2e;
+    --border-light: #ffffff;
+    --accent-gold: #ffd700;
+    --accent-pink: #ff6b9d;
+    --accent-cyan: #4deeea;
+    --text-main: #ffffff;
+  }
+
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #09080f;
+    color: var(--text-main);
+    font-family: 'DotGothic16', monospace, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  #game-container {
+    width: 100%;
+    max-width: 440px;
+    height: 100dvh;
+    max-height: 820px;
+    background-color: var(--bg-dark);
+    border: 4px solid #3c3759;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 12px;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.9);
+  }
+
+  /* CRT風スキャンライン演出 */
+  #game-container::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.18) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  /* トップバー */
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #3c3759;
+    padding-bottom: 8px;
+    z-index: 10;
+  }
+
+  .stage-badge {
+    font-size: 14px;
+    color: var(--accent-gold);
+    letter-spacing: 1px;
+  }
+
+  .sound-btn {
+    background: #2a2640;
+    border: 2px solid var(--border-light);
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 4px 10px;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 #000;
+  }
+  .sound-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
+  /* メインステージ表示領域 */
+  .stage-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding: 8px 0;
+  }
+
+  canvas#pixel-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: 100%;
+    max-width: 340px;
+    height: auto;
+    aspect-ratio: 16 / 11;
+    background: #181526;
+    border: 3px solid #534c7a;
+    box-shadow: inset 0 0 16px rgba(0,0,0,0.6);
+  }
+
+  .title-logo {
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .title-logo h1 {
+    font-size: 24px;
+    margin: 0;
+    color: var(--accent-gold);
+    text-shadow: 3px 3px 0 #8a2be2;
+    line-height: 1.4;
+  }
+  .title-sub {
+    font-size: 13px;
+    color: var(--accent-cyan);
+    margin-top: 4px;
+  }
+
+  /* カギ進捗バー */
+  .keys-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    background: #181526;
+    padding: 6px 14px;
+    border: 2px solid #534c7a;
+  }
+  .key-slot {
+    font-size: 14px;
+    color: #555;
+  }
+  .key-slot.unlocked {
+    color: var(--accent-gold);
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.7);
+  }
+
+  /* ドラクエ風メッセージウィンドウ */
+  .msg-window {
+    background: var(--panel-bg);
+    border: 3px solid var(--border-light);
+    border-radius: 4px;
+    padding: 12px 14px;
+    min-height: 112px;
+    box-shadow: inset 0 0 0 2px #000, 4px 4px 0 #000;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .msg-speaker {
+    position: absolute;
+    top: -12px;
+    left: 12px;
+    background: var(--bg-dark);
+    border: 2px solid var(--border-light);
+    padding: 1px 8px;
+    font-size: 12px;
+    color: var(--accent-cyan);
+  }
+
+  .msg-text {
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 4px 0 0 0;
+    white-space: pre-wrap;
+  }
+
+  .highlight-gold { color: var(--accent-gold); font-weight: bold; }
+  .highlight-pink { color: var(--accent-pink); font-weight: bold; }
+
+  /* コマンド・選択肢エリア */
+  .controls-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .rpg-btn {
+    background: #28233d;
+    border: 3px solid var(--border-light);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 16px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #000;
+    position: relative;
+    transition: background 0.1s;
+  }
+
+  .rpg-btn::before {
+    content: "▶ ";
+    color: var(--accent-gold);
+  }
+
+  .rpg-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 #000;
+    background: #3d365c;
+  }
+
+  .rpg-btn.primary {
+    text-align: center;
+    background: #42214a;
+    border-color: var(--accent-pink);
+    color: #fff;
+    font-size: 18px;
+  }
+  .rpg-btn.primary::before {
+    content: "★ ";
+    color: var(--accent-gold);
+  }
+
+  /* 揺れアニメーション（不正解・ケーキカット時） */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  .shake {
+    animation: shake 0.35s ease-in-out;
+  }
+
+  /* 紙吹雪キャンバス */
+  #confetti-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 40;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- トップバー -->
+  <div class="top-bar">
+    <span class="stage-badge" id="stage-label">QUEST : 00</span>
+    <button class="sound-btn" id="sound-toggle" onclick="toggleSound()">🔊 おと: ON</button>
+  </div>
+
+  <!-- メインビジュアルエリア -->
+  <div class="stage-area">
+    <div class="title-logo" id="title-header">
+      <h1>ひみつのトビラと<br>3にんのぼうけん</h1>
+      <div class="title-sub">- SPECIAL EDITION -</div>
+    </div>
+
+    <canvas id="pixel-canvas" width="160" height="110"></canvas>
+
+    <div class="keys-bar" id="keys-bar" style="display:none;">
+      <span class="key-slot" id="key-1">🔑 カギ1</span>
+      <span class="key-slot" id="key-2">🔑 カギ2</span>
+      <span class="key-slot" id="key-3">🔑 カギ3</span>
+    </div>
+  </div>
+
+  <!-- メッセージウィンドウ -->
+  <div class="msg-window" id="msg-window">
+    <div class="msg-speaker" id="msg-speaker">システム</div>
+    <p class="msg-text" id="msg-text">3にんの ゆうしゃが あつまった！
+「おと: ON」のまま ぼうけんを はじめよう！</p>
+  </div>
+
+  <!-- 操作ボタン -->
+  <div class="controls-area" id="controls-area">
+    <button class="rpg-btn primary" onclick="startGame()">ぼうけんを はじめる</button>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   8bit レトロサウンドエンジン（Web Audio API）
+   BGM＆効果音を外部ファイルなしでリアルタイム生成
+========================================================= */
+let audioCtx = null;
+let isMuted = false;
+let bgmTimer = null;
+let currentBgmType = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function toggleSound() {
+  initAudio();
+  isMuted = !isMuted;
+  const btn = document.getElementById('sound-toggle');
+  if (isMuted) {
+    btn.textContent = '🔇 おと: OFF';
+    stopBgm();
+  } else {
+    btn.textContent = '🔊 おと: ON';
+    playSe('select');
+    if (currentBgmType) startBgm(currentBgmType);
+  }
+}
+
+// 単音再生ヘルパー
+function playTone(freq, duration, type = 'square', volume = 0.08, delay = 0) {
+  if (isMuted || !audioCtx || !freq) return;
+  const now = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+
+// 効果音（SE）一覧
+function playSe(name) {
+  if (isMuted) return;
+  initAudio();
+
+  switch (name) {
+    case 'select': // ピッ（決定音）
+      playTone(880, 0.08, 'square', 0.09, 0);
+      playTone(1320, 0.12, 'square', 0.09, 0.06);
+      break;
+
+    case 'correct': // ピロリン♪（クイズ正解・カギ獲得）
+      playTone(587.33, 0.1, 'square', 0.1, 0);     // D5
+      playTone(739.99, 0.1, 'square', 0.1, 0.09);  // F#5
+      playTone(880.00, 0.1, 'square', 0.1, 0.18);  // A5
+      playTone(1174.66, 0.28, 'square', 0.11, 0.27); // D6
+      break;
+
+    case 'wrong': // ブブー（不正解）
+      playTone(160, 0.16, 'sawtooth', 0.12, 0);
+      playTone(130, 0.28, 'sawtooth', 0.12, 0.16);
+      break;
+
+    case 'door': // ゴゴゴ…パァン！（トビラ開放）
+      for (let i = 0; i < 6; i++) {
+        playTone(90 + (i % 2) * 20, 0.08, 'sawtooth', 0.1, i * 0.08);
+      }
+      playTone(523.25, 0.12, 'square', 0.1, 0.52);
+      playTone(659.25, 0.12, 'square', 0.1, 0.62);
+      playTone(783.99, 0.12, 'square', 0.1, 0.72);
+      playTone(1046.50, 0.45, 'square', 0.12, 0.82);
+      break;
+
+    case 'slice': // ザクッ！（ケーキ入刀）
+      playTone(950, 0.05, 'sawtooth', 0.12, 0);
+      playTone(420, 0.07, 'square', 0.12, 0.04);
+      playTone(210, 0.12, 'triangle', 0.14, 0.09);
+      break;
+
+    case 'fanfare': // ドラクエ風レベルアップ＆性別発表ファンファーレ！
+      const notes = [
+        { f: 523.25, d: 0.12, t: 0.00 }, // C5
+        { f: 523.25, d: 0.12, t: 0.14 }, // C5
+        { f: 523.25, d: 0.12, t: 0.28 }, // C5
+        { f: 523.25, d: 0.32, t: 0.42 }, // C5
+        { f: 415.30, d: 0.32, t: 0.76 }, // Ab4
+        { f: 466.16, d: 0.32, t: 1.10 }, // Bb4
+        { f: 523.25, d: 0.18, t: 1.44 }, // C5
+        { f: 466.16, d: 0.14, t: 1.66 }, // Bb4
+        { f: 523.25, d: 0.65, t: 1.82 }  // C5
+      ];
+      notes.forEach(n => {
+        playTone(n.f, n.d, 'square', 0.11, n.t);
+        playTone(n.f / 2, n.d, 'triangle', 0.09, n.t);
+      });
+      break;
+  }
+}
+
+// 8bit ループBGM
+const BGM_PATTERNS = {
+  // 冒険・クイズ中の軽快なチプチューン
+  adventure: {
+    tempo: 210,
+    melody: [
+      392.00, 523.25, 659.25, 523.25, 587.33, 493.88, 392.00, 0,
+      440.00, 523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 0,
+      392.00, 523.25, 659.25, 523.25, 698.46, 659.25, 587.33, 493.88,
+      523.25, 659.25, 783.99, 1046.50, 783.99, 0, 0, 0
+    ]
+  },
+  // お祝い・ケーキ＆フィナーレのハッピーBGM
+  celebrate: {
+    tempo: 190,
+    melody: [
+      523.25, 659.25, 783.99, 1046.50, 880.00, 1046.50, 783.99, 0,
+      698.46, 880.00, 783.99, 659.25, 587.33, 659.25, 523.25, 0,
+      523.25, 659.25, 783.99, 1046.50, 1174.66, 1046.50, 880.00, 783.99,
+      880.00, 987.77, 1046.50, 1046.50, 0, 0, 0, 0
+    ]
+  }
+};
+
+function startBgm(type) {
+  currentBgmType = type;
+  stopBgm();
+  if (isMuted || !BGM_PATTERNS[type]) return;
+  initAudio();
+
+  const pattern = BGM_PATTERNS[type];
+  let step = 0;
+
+  bgmTimer = setInterval(() => {
+    if (isMuted) return;
+    const freq = pattern.melody[step % pattern.melody.length];
+    if (freq > 0) {
+      playTone(freq, (pattern.tempo / 1000) * 0.85, 'triangle', 0.055, 0);
+    }
+    step++;
+  }, pattern.tempo);
+}
+
+function stopBgm() {
+  if (bgmTimer) {
+    clearInterval(bgmTimer);
+    bgmTimer = null;
+  }
+}
+
+/* =========================================================
+   ドット絵描画エンジン（160x110 キャンバス）
+========================================================= */
+const canvas = document.getElementById('pixel-canvas');
+const ctx = canvas.getContext('2d');
+let animFrame = 0;
+let currentScene = 'title'; // 'title' | 'door' | 'baby' | 'cake' | 'reveal'
+let keysUnlocked = 0;
+let cakeCuts = 0;
+
+function drawPixelChar(x, y, hairColor, outfitColor, name, bounceOffset = 0) {
+  const by = y + bounceOffset;
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(x + 2, y + 18, 12, 3);
+
+  // 髪・頭
+  ctx.fillStyle = hairColor;
+  ctx.fillRect(x + 3, by, 10, 7);
+  // 顔
+  ctx.fillStyle = '#ffdbac';
+  ctx.fillRect(x + 4, by + 3, 8, 6);
+  // 目
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x + 5, by + 5, 2, 2);
+  ctx.fillRect(x + 9, by + 5, 2, 2);
+  // ほっぺ
+  ctx.fillStyle = '#ff8da1';
+  ctx.fillRect(x + 4, by + 7, 2, 1);
+  ctx.fillRect(x + 10, by + 7, 2, 1);
+
+  // 服
+  ctx.fillStyle = outfitColor;
+  ctx.fillRect(x + 3, by + 9, 10, 7);
+  // 足
+  ctx.fillStyle = '#333';
+  ctx.fillRect(x + 4, by + 16, 3, 3);
+  ctx.fillRect(x + 9, by + 16, 3, 3);
+
+  // 名前ラベル
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '6px DotGothic16, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, x + 8, by - 3);
+}
+
+function drawStars() {
+  ctx.fillStyle = '#fff';
+  const stars = [[14,14],[36,24],[125,18],[145,32],[75,12],[105,26],[22,42]];
+  stars.forEach(([sx, sy], idx) => {
+    if ((Math.floor(animFrame / 15) + idx) % 2 === 0) {
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+  });
+}
+
+function drawGround() {
+  ctx.fillStyle = '#26213b';
+  ctx.fillRect(0, 84, 160, 26);
+  ctx.fillStyle = '#3b335c';
+  for (let gx = 0; gx < 160; gx += 8) {
+    ctx.fillRect(gx, 84, 6, 2);
+  }
+}
+
+function drawDoorScene() {
+  // 大きなひみつのトビラ
+  const dx = 62, dy = 24;
+  ctx.fillStyle = '#5c3a21';
+  ctx.fillRect(dx, dy, 36, 60);
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(dx, dy, 36, 60);
+
+  // 3つの鍵穴
+  for (let i = 0; i < 3; i++) {
+    const kx = dx + 7 + i * 10;
+    const ky = dy + 28;
+    ctx.fillStyle = keysUnlocked > i ? '#ffd700' : '#1a120b';
+    ctx.fillRect(kx, ky, 4, 6);
+  }
+}
+
+function drawBabyScene() {
+  const bounce = Math.sin(animFrame * 0.15) * 2;
+  // 光のオーラ
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+  ctx.beginPath();
+  ctx.arc(80, 50, 26 + bounce, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ドット絵コウノトリ＆赤ちゃんバスケット
+  ctx.fillStyle = '#fff5e4';
+  ctx.fillRect(68, 44 + bounce, 24, 14);
+  ctx.fillStyle = '#ff9ebb';
+  ctx.fillRect(72, 42 + bounce, 16, 6);
+  // 赤ちゃん顔
+  ctx.fillStyle = '#ffdbac';
+  ctx.fillRect(76, 38 + bounce, 8, 7);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(78, 41 + bounce, 1, 1);
+  ctx.fillRect(81, 41 + bounce, 1, 1);
+  // ハート
+  ctx.fillStyle = '#ff4d6d';
+  ctx.fillRect(78, 26 - bounce, 4, 4);
+}
+
+function drawCakeScene(revealed) {
+  const cx = 54, cy = 46;
+  const split = revealed ? 8 : cakeCuts * 2;
+
+  // お皿
+  ctx.fillStyle = '#e0e0e0';
+  ctx.fillRect(42, 78, 76, 5);
+
+  // 左半分ケーキ
+  ctx.fillStyle = '#fff8eb';
+  ctx.fillRect(cx - split, cy, 26, 32);
+  ctx.fillStyle = '#ff85a1';
+  ctx.fillRect(cx - split, cy, 26, 6);
+
+  // 右半分ケーキ
+  ctx.fillStyle = '#fff8eb';
+  ctx.fillRect(cx + 26 + split, cy, 26, 32);
+  ctx.fillStyle = '#ff85a1';
+  ctx.fillRect(cx + 26 + split, cy, 26, 6);
+
+  // トップのイチゴ
+  ctx.fillStyle = '#ff2a55';
+  ctx.fillRect(cx + 8 - split, cy - 6, 6, 6);
+  ctx.fillRect(cx + 38 + split, cy - 6, 6, 6);
+
+  // 切り込み線（未発表時）
+  if (!revealed && cakeCuts > 0) {
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(cx + 25, cy - 4, 2, 12 * cakeCuts);
+  }
+
+  // 性別発表（GIRL：ピンククリーム＆イチゴたっぷり！）
+  if (revealed) {
+    ctx.fillStyle = '#ff5c8a';
+    ctx.fillRect(cx + 18, cy + 4, 16, 28);
+    // ハート＆イチゴ粒子
+    const bounce = Math.sin(animFrame * 0.2) * 3;
+    ctx.fillStyle = '#ff1e56';
+    ctx.fillRect(74, 26 + bounce, 5, 5);
+    ctx.fillRect(83, 22 - bounce, 5, 5);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(78, 16 + bounce, 4, 4);
+  }
+}
+
+function renderLoop() {
+  animFrame++;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawStars();
+  drawGround();
+
+  const b1 = Math.floor(animFrame / 16) % 2 === 0 ? 0 : -1;
+  const b2 = Math.floor((animFrame + 8) / 16) % 2 === 0 ? 0 : -1;
+
+  if (currentScene === 'title') {
+    drawPixelChar(34, 66, '#4a2c11', '#ff7aa2', 'めぐさん', b1);
+    drawPixelChar(72, 66, '#2b1d12', '#ffd166', 'まこ', b2);
+    drawPixelChar(110, 66, '#5c3a21', '#4ea8de', 'はづきさん', b1);
+  } else if (currentScene === 'door') {
+    drawDoorScene();
+    drawPixelChar(16, 66, '#4a2c11', '#ff7aa2', 'めぐさん', b1);
+    drawPixelChar(114, 66, '#2b1d12', '#ffd166', 'まこ', b2);
+    drawPixelChar(136, 66, '#5c3a21', '#4ea8de', 'はづきさん', b1);
+  } else if (currentScene === 'baby') {
+    drawBabyScene();
+    drawPixelChar(24, 66, '#4a2c11', '#ff7aa2', 'めぐさん', -2);
+    drawPixelChar(72, 66, '#2b1d12', '#ffd166', 'まこ', -2);
+    drawPixelChar(120, 66, '#5c3a21', '#4ea8de', 'はづきさん', -2);
+  } else if (currentScene === 'cake' || currentScene === 'reveal') {
+    drawCakeScene(currentScene === 'reveal');
+    drawPixelChar(14, 66, '#4a2c11', '#ff7aa2', 'めぐさん', b1);
+    drawPixelChar(116, 66, '#2b1d12', '#ffd166', 'まこ', b2);
+    drawPixelChar(138, 66, '#5c3a21', '#4ea8de', 'はづきさん', b1);
+  }
+
+  requestAnimationFrame(renderLoop);
+}
+renderLoop();
+
+/* =========================================================
+   ゲーム進行ロジック（女の子固定版）
+========================================================= */
+const QUIZZES = [
+  {
+    q: '【だい1の カギ】\nまこの たんじょうびは いつ？',
+    options: ['10月10日', '12月12日', '3月11日'],
+    answer: 1,
+    hint: 'ブブー！ちがうよ！ 12がつ の ゾロメだよ！'
+  },
+  {
+    q: '【だい2の カギ】\nまこが つぎに いきたい くには？',
+    options: ['エジプト', 'ハワイ', '韓国'],
+    answer: 0,
+    hint: 'ブブー！ピラミッドが ある あの くに だよ！'
+  },
+  {
+    q: '【だい3の カギ】\nまこの げんざいの こしの じょうたいは？',
+    options: ['絶好調！', 'ちょっとだるい', '痛い'],
+    answer: 2,
+    hint: 'ブブー！さいきん ずっと つらそうな アレ…！'
+  }
+];
+
+let quizIndex = 0;
+
+function setMessage(speaker, htmlText) {
+  document.getElementById('msg-speaker').textContent = speaker;
+  document.getElementById('msg-text').innerHTML = htmlText;
+}
+
+function setControls(buttonsHtml) {
+  document.getElementById('controls-area').innerHTML = buttonsHtml;
+}
+
+function shakeScreen() {
+  const el = document.getElementById('msg-window');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+// 1. ゲーム開始（クイズステージへ）
+function startGame() {
+  initAudio();
+  playSe('select');
+  startBgm('adventure');
+
+  document.getElementById('title-header').style.display = 'none';
+  document.getElementById('keys-bar').style.display = 'flex';
+  document.getElementById('stage-label').textContent = 'STAGE 1 : ひみつのトビラ';
+
+  currentScene = 'door';
+  quizIndex = 0;
+  keysUnlocked = 0;
+
+  setMessage(
+    'ナレーション',
+    'めのまえに 「ひみつのトビラ」が あらわれた！\nめぐさん と はづきさん で きょうりょくして\n3つの カギを あつめよう！'
+  );
+  setControls(`<button class="rpg-btn primary" onclick="showQuiz()">カギを さがす（クイズへ）</button>`);
+}
+
+function showQuiz() {
+  playSe('select');
+  const current = QUIZZES[quizIndex];
+  setMessage(`だい${quizIndex + 1}もん`, current.q);
+
+  let btns = '';
+  current.options.forEach((opt, idx) => {
+    btns += `<button class="rpg-btn" onclick="checkAnswer(${idx})">${opt}</button>`;
+  });
+  setControls(btns);
+}
+
+function checkAnswer(selectedIdx) {
+  const current = QUIZZES[quizIndex];
+  if (selectedIdx === current.answer) {
+    playSe('correct');
+    keysUnlocked++;
+    document.getElementById(`key-${keysUnlocked}`).classList.add('unlocked');
+
+    if (keysUnlocked < 3) {
+      setMessage(
+        'システム',
+        `せいかい！！\n<span class="highlight-gold">「だい${keysUnlocked}の カギ」</span>を てにいれた！`
+      );
+      quizIndex++;
+      setControls(`<button class="rpg-btn primary" onclick="showQuiz()">つぎの カギへ</button>`);
+    } else {
+      setMessage(
+        'システム',
+        `すべての カギが そろった！！\n<span class="highlight-gold">ひみつのトビラ</span>が いま ひらかれる…！`
+      );
+      setControls(`<button class="rpg-btn primary" onclick="openSecretDoor()">トビラを あける！</button>`);
+    }
+  } else {
+    playSe('wrong');
+    shakeScreen();
+    setMessage('ハズレ！', current.hint);
+  }
+}
+
+// 2. 妊娠報告ステージ
+function openSecretDoor() {
+  stopBgm();
+  playSe('door');
+  currentScene = 'baby';
+  document.getElementById('stage-label').textContent = 'STAGE 2 : じゅうだいはっぴょう';
+
+  setMessage(
+    'まこ',
+    `じゃじゃーん！！\nじつは おなかに <span class="highlight-pink">あかちゃん</span>が います！\nしゅっさんよていびは <span class="highlight-gold">2027年3月11日</span> だよ！`
+  );
+
+  setTimeout(() => {
+    startBgm('celebrate');
+  }, 1100);
+
+  setControls(
+    `<button class="rpg-btn primary" onclick="startCakeStage()">さらに じゅうだいはっぴょうへ！</button>`
+  );
+}
+
+// 3. ジェンダーリビールケーキ入刀ステージ
+function startCakeStage() {
+  playSe('select');
+  currentScene = 'cake';
+  cakeCuts = 0;
+  document.getElementById('stage-label').textContent = 'FINAL : せいべつはっぴょう';
+
+  setMessage(
+    'まこ',
+    `おいわいの ケーキが あらわれた！\nめぐさん と はづきさん で せーので タップして\nケーキを カットしてね！（あと 3かい）`
+  );
+  setControls(`<button class="rpg-btn primary" onclick="cutCake()">ナイフを いれる！（あと3かい）</button>`);
+}
+
+function cutCake() {
+  cakeCuts++;
+  shakeScreen();
+
+  if (cakeCuts < 3) {
+    playSe('slice');
+    const remain = 3 - cakeCuts;
+    setMessage(
+      'ドキドキ…',
+      `ザクッ！ ケーキに ナイフが はいった！\nなかは どっちかな…？（あと ${remain}かい！）`
+    );
+    setControls(`<button class="rpg-btn primary" onclick="cutCake()">ナイフを いれる！（あと${remain}かい）</button>`);
+  } else {
+    // 性別発表（女の子固定！）
+    stopBgm();
+    playSe('slice');
+    setTimeout(() => {
+      playSe('fanfare');
+      startConfetti();
+    }, 180);
+
+    currentScene = 'reveal';
+    document.getElementById('stage-label').textContent = 'QUEST CLEAR !!';
+
+    setMessage(
+      'おめでとう！！',
+      `なかから イチゴクリームが とびだした！\nあかちゃんは <span class="highlight-pink">★ おんなのこ（GIRL）★</span> でした！\nこれからも 3にん＋ベビちゃん で よろしくね！`
+    );
+
+    setControls(`<button class="rpg-btn" onclick="location.reload()">もういちど さいしょから みる</button>`);
+  }
+}
+
+/* =========================================================
+   ピンク＆ゴールドの紙吹雪アニメーション
+========================================================= */
+function startConfetti() {
+  const cCanvas = document.getElementById('confetti-canvas');
+  const cCtx = cCanvas.getContext('2d');
+  cCanvas.width = cCanvas.parentElement.clientWidth;
+  cCanvas.height = cCanvas.parentElement.clientHeight;
+
+  const colors = ['#ff6b9d', '#ff9ebb', '#ffd700', '#ffffff', '#ff477e'];
+  const pieces = Array.from({ length: 75 }, () => ({
+    x: Math.random() * cCanvas.width,
+    y: Math.random() * -cCanvas.height,
+    size: Math.floor(Math.random() * 6) + 5,
+    speedY: Math.random() * 2.5 + 1.5,
+    speedX: (Math.random() - 0.5) * 1.8,
+    color: colors[Math.floor(Math.random() * colors.length)]
+  }));
+
+  function animateConfetti() {
+    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+    pieces.forEach(p => {
+      p.y += p.speedY;
+      p.x += p.speedX;
+      if (p.y > cCanvas.height) p.y = -10;
+      cCtx.fillStyle = p.color;
+      cCtx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
+    });
+    requestAnimationFrame(animateConfetti);
+  }
+  animateConfetti();
+}
+</script>
+</body>
+</html>
